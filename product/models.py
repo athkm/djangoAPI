@@ -7,15 +7,6 @@ from django.db import models
 #     Passwd = models.TextField(max_length=200)
 #     binary = models.IntegerField(max_digits=1, null=False)
 
-
-
-class Customer(models.Model):   #user
-    c_name   = models.CharField(max_length=20)
-    location = models.TextField(max_length=200)
-    mobile   = models.IntegerField()
-    def __str__(self):
-        return self.c_name
-
 class Vender(models.Model): #vendor
     v_name     = models.CharField(max_length=20)
     v_location = models.TextField(max_length=100)
@@ -29,15 +20,41 @@ class Products(models.Model):
     p_cost   = models.DecimalField(decimal_places=2, max_digits=200, null=False)
     p_count  = models.IntegerField()
     vender   = models.ManyToManyField(Vender)
-    customer = models.ManyToManyField(Customer, blank = True) 
+    #customer = models.ManyToManyField(Customer, blank = True) 
+    # def __str__(self):
+    #     return self.p_name
+
+
+class Cart(models.Model):
+    #user_name = models.TextField()
+    #user = models.OneToOneField(Customer, on_delete = models.CASCADE, null = False)
+    #sessions_id = models.TextField() #?
+    c_product = models.ManyToManyField(Products, blank = True)
+    c_quantity = models.IntegerField()
+    c_total = models.DecimalField(decimal_places=2, max_digits=200, null = True) #need to make null false and default s 0
+    #order not used for now
+    #c_order = models.ForeignKey(Order, on_delete = models.CASCADE)
+    #c_order = models.OneToOneField(Order, on_delete = models.CASCADE,null = True)
+    # def __str__(self):
+    #     return str(type(self.c_product))
+
+class Customer(models.Model):   #user
+    c_name   = models.CharField(max_length=20)
+    location = models.TextField(max_length=200)
+    cart     = models.OneToOneField(Cart, on_delete = models.CASCADE, null = True)
+    mobile   = models.IntegerField()
+    products = models.ManyToManyField(Products, blank = True) 
     def __str__(self):
-        return self.p_name
+        return self.c_name
+
+
 
 class Order(models.Model):
     o_status  = models.TextField()
     # o_bill    = models.OneToOneField(Bill, on_delete = models.CASCADE, default= 0)
     o_vender  = models.ManyToManyField(Vender)
     o_user    = models.ManyToManyField(Customer)
+    c_cart = models.OneToOneField(Cart, on_delete = models.CASCADE,null = True)
     def __str__(self):
         return self.o_status
 
@@ -56,10 +73,3 @@ class Delivery(models.Model):
     def __str__(self):
         return self.d_amount
 
-class Cart(models.Model):
-    user_id = models.TextField()
-    sessions_id = models.TextField() #?
-    c_product = models.ManyToManyField(Products, blank = True)
-    c_quantity = models.IntegerField()
-    #c_order = models.ForeignKey(Order, on_delete = models.CASCADE)
-    c_order = models.OneToOneField(Order, on_delete = models.CASCADE,null = True)
