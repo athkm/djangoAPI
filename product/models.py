@@ -14,12 +14,15 @@ class Vender(models.Model): #vendor
     def __str__(self):
         return self.v_name
 
+    
+
 class Products(models.Model):
+    #p_image -> ?
     p_name   = models.CharField(max_length=20)
     p_type   = models.CharField(max_length=30)
     p_cost   = models.DecimalField(decimal_places=2, max_digits=200, null=False)
-    p_count  = models.IntegerField()
-    vender   = models.ManyToManyField(Vender)
+    p_count  = models.IntegerField()    #vendor field not useful for now as productss are available for all
+    vender   = models.ManyToManyField(Vender) #when last vendor of this product is deleted product is not deleted
     #customer = models.ManyToManyField(Customer, blank = True) 
     # def __str__(self):
     #     return self.p_name
@@ -43,11 +46,9 @@ class Customer(models.Model):   #user
     location = models.TextField(max_length=200)
     cart     = models.OneToOneField(Cart, on_delete = models.CASCADE, null = True)
     mobile   = models.IntegerField()
-    products = models.ManyToManyField(Products, blank = True) 
+    products = models.ManyToManyField(Products, blank = True) #can remove this? Onetoone with cart and cart has products
     def __str__(self):
         return self.c_name
-
-
 
 class Order(models.Model):
     o_status  = models.TextField()
@@ -73,3 +74,11 @@ class Delivery(models.Model):
     def __str__(self):
         return self.d_amount
 
+class VendorCostSet(models.Model):
+    Changed_amount  = models.DecimalField(decimal_places=2, max_digits=200, null=False)
+    vendor_key = models.ForeignKey(Vender, on_delete = models.CASCADE, null = True)
+    product_key = models.ForeignKey(Products, on_delete = models.CASCADE, null = True)
+    # vendor_key = models.IntegerField()
+    # product_key = models.IntegerField()
+
+#S3 -> key-value
