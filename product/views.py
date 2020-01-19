@@ -29,13 +29,7 @@ class HelloView(APIView):
     def get(self, request):
         content = {'message': 'Hello, World!'}
         return Response(content)
-'''
-after signing up in shell try
-from django.contrib.auth.models import User     // user table?
-User.objects.count()
-u = User.objects.first()
-u.username
-'''
+
 
 def signup(request):
     if(request.method == "POST"):
@@ -140,12 +134,8 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
             for i in carts1:
                 i.c_product.remove(del_product)
                 i.save()
-                #print(i, del_product) 
-            # print(carts1.c_product)
             serialized=CartSerializer(carts1, many=True).data
         else:
-            # cart = Cart.objects.all()
-            # serialized=CartSerializer(cart, many=True).data
             Cart.objects.all().delete()
             return Response({"status": "deleted"}, status.HTTP_200_OK)
         return JsonResponse({"cart": serialized}, status=status.HTTP_200_OK)
@@ -172,12 +162,6 @@ class VendorViewset(APIView):
             change_price.product_key = i
             change_price.vendor_key = venderObj
             change_price.save()
-        # for i in products:
-        #     print(i.id)
-        
-        # for vender_ in post_data["c_product"]:
-        #     cartObj.c_product.add(product_)  
-        #     cartObj.save()
         return Response({"status":"Success"}, status.HTTP_200_OK)
 
 
@@ -202,8 +186,6 @@ class VendorViewset(APIView):
         entries = VendorCostSet.objects.get(vendor_key = vendor_id, product_key = product_id)
         entries.Changed_amount = new_amount
         entries.save()
-        # for i in entries:
-        #     print(i.Changed_amount)
         return Response({"status":"Success"}, status.HTTP_200_OK)
 
 
@@ -222,7 +204,7 @@ class OrderViewSet(APIView):
         return Response({"status":"Success"}, status.HTTP_200_OK)
     
 class BillViewSet(APIView):
-    def get(self, request):
+    def get(self, request): #need to change this
         customer_id = request.GET.get("c_id")
         customer = Customer.objects.get(pk = customer_id)
         cust_details = customer.cart.c_product.all()
