@@ -1,3 +1,4 @@
+ 
 from django.shortcuts import render
 from rest_framework.views import APIView
 from product.models import Products, Vender, Order, Bill, Delivery, Customer, Cart, VendorCostSet, OrderDetails
@@ -22,10 +23,7 @@ import logging
 logger = logging.getLogger('app_api') #from LOGGING.loggers in settings.py
 
 from .forms import CreateUserForm
-
-'''
-
-TO login :
+'''TO login :
     vendor: username: vishal
             password: vishalshaji123
     
@@ -339,3 +337,43 @@ class UpdateCart(APIView):
  
 
 
+
+class BillViewSet(APIView):     #after customer api
+    def get(self, request):
+        customer_id = request.GET.get("c_id")
+        customer = OrderDetails.objects.get(pk = customer_id)
+        cart = Cart.objects.get(pk = customer_id)
+        #cust_details = customer.cart.c_product.all()
+        #print(customer)
+        #print(cust_details[1])
+        #print(customer.cart.c_total)
+        # bill = Bill()
+        # bill.b_quantity = 10 #hardcoding for nwo
+        # bill.b_amount = customer.cart.c_total
+        # for product_ in customer.products:
+        #     print(product_)
+        return Response({"status":"Success"}, status.HTTP_200_OK )        # return name, address, vendor name, vendor number, total amount,date
+    
+
+    #def delete(APIView):
+@method_decorator([userdecorator], name='dispatch')
+class UpdateCart(APIView):
+    def put(self, request):         #check if requested number of products are available. request < than count of product   
+        product_id = request.GET.get('id')
+        customer_id = request.GET.get("c_id")
+        orderdetailsObj = OrderDetails.objects.get(user_id = customer_id, product_id = product_id)
+        orderdetailsObj.quantity = orderdetailsObj.quantity + 1
+        orderdetailsObj.save()
+        return Response({"status": "updated"}, status.HTTP_200_OK)
+
+    def delete(self, request):
+        product_id = request.GET.get('id')
+        customer_id = request.GET.get("c_id")
+        orderdetailsObj = OrderDetails.objects.get(user_id = customer_id, product_id = product_id)
+        if(orderdetailsObj.quantity == 0):      #need to add code part where entry will be deleted from the cart 
+            pass
+        else:       
+            orderdetailsObj.quantity = orderdetailsObj.quantity - 1
+        orderdetailsObj.save()
+        return Response({"status": "updated"}, status.HTTP_200_OK)
+ 
