@@ -23,21 +23,7 @@ import logging
 logger = logging.getLogger('app_api') #from LOGGING.loggers in settings.py
 
 from .forms import CreateUserForm
-'''TO login :
-    vendor: username: vishal
-            password: vishalshaji123
-    
-    admin:
-            " : ath
-            " : ath
-    
 
-customer:
-            '' : sathvik
-                :sathvikshaji123
-
-
-'''
 
 # @login_required(login_url='loginpage')
 def home(request):
@@ -126,6 +112,7 @@ class ProductViewset(APIView):
         productObj.save()
         return Response({"status":"Success"}, status.HTTP_200_OK)
 
+    #after deleting, corresponding entries in vendor cost set also has to be deleted
     def delete(self, request):              #try and exception here?
         product_id = request.GET.get('id')
         print(product_id)
@@ -156,7 +143,7 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
     
     #delete product from a cart. 127.0.0.1:8000/products/id/ (given product id must be in cart to delete)
     # @method_decorator([cartdecorator], name="dispatch")
-    def delete(self, request):
+    def delete(self, request):          #need to delete entry from orderdetailstable
         if(request.GET.get('id')): # pass id in param
             cart_id = request.GET.get('id')     
             if(request.GET.get('c_product')):#pass c_product id number in param 
@@ -173,9 +160,11 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
             carts1.c_quantity = carts1.c_quantity-1
             carts1.c_total = carts1.c_total - product.p_cost
             carts1.save()
+            OrderDetails.objects.get(product_id = del_product, user_id = cart_id).delete()
             for cart_items in carts:
                 cart_items.c_product.remove(del_product)
                 cart_items.save()
+
                 #print(i, del_product) 
             # print(carts1.c_product)
             serialized=CartSerializer(carts, many=True).data
@@ -193,19 +182,22 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
         print(price)
         customer_id = request.GET.get("c_id") # customer id where it is to be added. cart and customer 1-1 relationship
         cart = Cart.objects.get(pk=customer_id)
-        cart.c_quantity =cart.c_quantity+1
-        cart.c_total = cart.c_total +  price
-        cart.save()
         customer = Customer.objects.get(pk = customer_id)
-        customer.cart.c_product.add(product_id)
-        #customer.cart.c_quantity = customer.cart.c_quantity+1
-        #customer.cart.c_total = customer.cart.c_total +  price
-        customer.save()
-        orderdetailsObj = OrderDetails()
-        orderdetailsObj.product_id = Products.objects.get(pk = product_id)
-        orderdetailsObj.user_id = Customer.objects.get(pk = customer_id)
-        orderdetailsObj.quantity= 1
-        orderdetailsObj.save()
+        if product.cart_set.filter(pk=cart.pk).exists():
+            return Response({"status": "product exists in cart"}, status.HTTP_400_BAD_REQUEST) # bad request?
+        else:
+            cart.c_quantity =cart.c_quantity+1
+            cart.c_total = cart.c_total +  price
+            cart.save()
+            customer.cart.c_product.add(product_id)
+            customer.save()
+            check_order_details = OrderDetails.objects.filter(product_id = product_id, user_id = customer_id)
+        # if(len(check_order_details) == 0):
+            orderdetailsObj = OrderDetails()
+            orderdetailsObj.product_id = Products.objects.get(pk = product_id)
+            orderdetailsObj.user_id = Customer.objects.get(pk = customer_id)
+            orderdetailsObj.quantity= 1
+            orderdetailsObj.save()
         # customer = Customer.objects.filter(pk = customer_id)          ---> ?
         return Response({"status": "updated"}, status.HTTP_200_OK)
 
@@ -346,8 +338,9 @@ class UpdateCart(APIView):
         product_id = request.GET.get('id')
         customer_id = request.GET.get("c_id")
         orderdetailsObj = OrderDetails.objects.get(user_id = customer_id, product_id = product_id)
-        if(orderdetailsObj.quantity == 0):      #need to add code part where entry will be deleted from the cart 
-            pass
+        if(orderdetailsObj.quantity == 1):      #need to add code part where entry will be deleted from the cart 
+            return Response({"status": "last item, delete the product from cart"}, status.HTTP_200_OK)
+            # https://stackoverflow.com/questions/11663945/calling-a-rest-api-from-django-view    -> call this for last item so product can be deleted?
         else:
             orderdetailsObj.quantity = orderdetailsObj.quantity - 1
         orderdetailsObj.save()
