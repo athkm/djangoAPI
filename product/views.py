@@ -3,7 +3,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from product.models import Products, Vender, Order, Bill, Delivery, Customer, Cart, VendorCostSet, OrderDetails
 #from rest_framework import viewsets, permissions
-from .decorators import unauthenticated_user, allowed_users, admindecorator, userdecorator, vendordecorator, useradmindecorator
+# from .decorators import unauthenticated_user, allowed_users, admindecorator, userdecorator, vendordecorator, useradmindecorator
 from .serializers import ProductSerializer, VenderSerializer, CustomerSerializer, BillSerializer, OrderSerializer, DeliverySerializer, CartSerializer, VendorCostSerializer
 from django.shortcuts import get_object_or_404, redirect
 from rest_framework.response import Response
@@ -39,15 +39,14 @@ customer:
 
 '''
 
-@login_required(login_url='loginpage')
-# @allowed_users(allowed_roles=['admin'])
+# @login_required(login_url='loginpage')
 def home(request):
     count = User.objects.count()
     return render(request, 'home.html',{
         'count': count
     })
 
-@unauthenticated_user
+# @unauthenticated_user
 def loginPage(request):
 	# if request.user.is_authenticated:
 	# 	return redirect('home')
@@ -84,6 +83,7 @@ def register(request):      #reload not loading new page....error msg stays even
             messages.success(request, user +" Signin success")
             return redirect('login/')
     context = {'form':form}
+    
     return render(request, 'registration/register.html', context)
 
 
@@ -91,7 +91,7 @@ def userPage(request):
     context = {}
     return render(request, 'user.html', context)
 
-@method_decorator( [useradmindecorator], name='dispatch')
+# @method_decorator( [useradmindecorator], name='dispatch')
 class ProductViewset(APIView):
     #127.0.0.1:8000/products/id/
     
@@ -112,7 +112,9 @@ class ProductViewset(APIView):
         post_data = request.data
         productObj = Products(p_name=post_data["p_name"], p_type=post_data["p_type"], p_cost=post_data["p_cost"])#, p_count=post_data["p_count"],
         productObj.save()
-        for vender_ in post_data["vender"]:
+        # for vender_ in post_data["vender"]:
+        #     productObj.vender.add(vender_)
+        for vender_ in Vender.objects.all():
             productObj.vender.add(vender_)  
         vendors = Vender.objects.all()
         for vendor_ in vendors:
@@ -139,7 +141,7 @@ class ProductViewset(APIView):
             product_.save(update_fields=["p_name"])
         return Response({"status": "updated"}, status.HTTP_200_OK)
 
-@method_decorator([userdecorator], name="dispatch")
+# @method_decorator([userdecorator], name="dispatch")
 class AddToCartViewset(APIView): #change to be done: create a cart automatically whean a customer is created
   
     def get(self, request):     #calculate product price in cart...sum_of_all(product_price*total_no)
@@ -163,8 +165,14 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
                     return Response({"status": "Failure"}, status=status.HTTP_400_BAD_REQUEST)
 
             del_product = request.GET.get("c_product")
+            product = Products.objects.get(pk = del_product)
+            print(del_product)
             #print(del_product, request.GET.get('id'))
             carts = Cart.objects.filter(pk=cart_id)#.values_list("c_product", flat = True)
+            carts1 = Cart.objects.get(pk = cart_id)
+            carts1.c_quantity = carts1.c_quantity-1
+            carts1.c_total = carts1.c_total - product.p_cost
+            carts1.save()
             for cart_items in carts:
                 cart_items.c_product.remove(del_product)
                 cart_items.save()
@@ -180,9 +188,18 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
 
     def put(self, request): #add a product to cart              # put...change to post?
         product_id = request.GET.get('id') #product id to be added in params
+        product = Products.objects.get(pk=product_id)
+        price = product.p_cost
+        print(price)
         customer_id = request.GET.get("c_id") # customer id where it is to be added. cart and customer 1-1 relationship
+        cart = Cart.objects.get(pk=customer_id)
+        cart.c_quantity =cart.c_quantity+1
+        cart.c_total = cart.c_total +  price
+        cart.save()
         customer = Customer.objects.get(pk = customer_id)
         customer.cart.c_product.add(product_id)
+        #customer.cart.c_quantity = customer.cart.c_quantity+1
+        #customer.cart.c_total = customer.cart.c_total +  price
         customer.save()
         orderdetailsObj = OrderDetails()
         orderdetailsObj.product_id = Products.objects.get(pk = product_id)
@@ -192,7 +209,7 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
         # customer = Customer.objects.filter(pk = customer_id)          ---> ?
         return Response({"status": "updated"}, status.HTTP_200_OK)
 
-@method_decorator([vendordecorator], name="dispatch")
+# @method_decorator([vendordecorator], name="dispatch")
 class VendorViewset(APIView):
     def post(self, request):
         post_data = request.data
@@ -215,9 +232,10 @@ class VendorViewset(APIView):
 
 
     def get(self, request): #does not give the list of vendors. This is for vendoorcostset
-        if(request.GET.get('id')):
+        if(request.GET.get('id') and request.GET.get('p_id') ):
             vendor_id = request.GET.get('id')
-            vendors = VendorCostSet.objects.filter(pk = vendor_id)
+            product_id = request.GET.get('p_id')
+            vendors = VendorCostSet.objects.filter(pk = vendor_id, product_key = product_id)
             print(vendors)
             serialized=VendorCostSerializer(vendors, many=True).data
         else:
@@ -240,14 +258,14 @@ class VendorViewset(APIView):
 #need to clear the cart once ordered --------------------------*-------------------------------------
 class OrderViewSet(APIView):
   
-    @method_decorator([useradmindecorator], name='dispatch')
+    # @method_decorator([useradmindecorator], name='dispatch')
     def get(self, request):
         user_id = request.GET.get('u_id')
         user = Customer.objects.get(pk = user_id)
         order = Order.objects.get(pk = user_id)
         return Response({"status":order.o_status}, status.HTTP_200_OK)
 
-    @method_decorator([admindecorator], name='dispatch')
+    # @method_decorator([admindecorator], name='dispatch')
     def put(self, request):             #need to add try and except herre
         status = {
         0 : "Order Recieved",
@@ -262,9 +280,9 @@ class OrderViewSet(APIView):
         order = Order.objects.get(pk = user_id)
         order.o_status = status_value[status_key[status_value.index(order.o_status)] + 1]   #try and except block here. IF Delievered dont do this operation
         order.save()
-        return Response({"status":"Success"})
+        return Response({"status":order.o_status})
 
-    @method_decorator([userdecorator], name="dispatch")
+    # @method_decorator([userdecorator], name="dispatch")
     def post(self, request): #check if order is placed for that id, if not create new order, else change status
         user_id = request.GET.get('u_id')
         cart = Cart.objects.get(pk = user_id)
@@ -292,7 +310,7 @@ class OrderViewSet(APIView):
         return Response(responseData, status.HTTP_200_OK)
         # return Response({"status":"Success"}, status.HTTP_200_OK)
     
-    @method_decorator([userdecorator], name="dispatch")
+    # @method_decorator([userdecorator], name="dispatch")
     def delete(self, request):      
         pass
 
@@ -314,7 +332,7 @@ class BillViewSet(APIView):     #after customer api
     
 
     #def delete(APIView):
-@method_decorator([userdecorator], name='dispatch')
+# @method_decorator([userdecorator], name='dispatch')
 class UpdateCart(APIView):
     def put(self, request):         #check if requested number of products are available. request < than count of product   
         product_id = request.GET.get('id')
@@ -337,7 +355,7 @@ class UpdateCart(APIView):
  
 
 
-
+'''
 class BillViewSet(APIView):     #after customer api
     def get(self, request):
         customer_id = request.GET.get("c_id")
@@ -356,7 +374,7 @@ class BillViewSet(APIView):     #after customer api
     
 
     #def delete(APIView):
-@method_decorator([userdecorator], name='dispatch')
+# @method_decorator([userdecorator], name='dispatch')
 class UpdateCart(APIView):
     def put(self, request):         #check if requested number of products are available. request < than count of product   
         product_id = request.GET.get('id')
@@ -377,3 +395,4 @@ class UpdateCart(APIView):
         orderdetailsObj.save()
         return Response({"status": "updated"}, status.HTTP_200_OK)
  
+'''
