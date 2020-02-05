@@ -95,7 +95,7 @@ class ProductViewset(APIView):
 
 #initial phase u need to make all vendors as vendor for this product
     def post(self, request):
-        post_data = request.data
+        post_data = r0equest.data
         productObj = Products(p_name=post_data["p_name"], p_type=post_data["p_type"], p_cost=post_data["p_cost"])#, p_count=post_data["p_count"],
         productObj.save()
         # for vender_ in post_data["vender"]:
