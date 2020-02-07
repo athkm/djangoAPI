@@ -80,20 +80,22 @@ class ProductViewset(APIView):
     
     def get(self, request):         #trying to access product that does not exist?
         try:
-            product_id = request.GET.get("id")
-            # print(product_id)
-            products = Products.objects.filter(pk = product_id)
-            if(len(products) == 0):
-                return HttpResponse(status=400)    
-            serialized=ProductSerializer(products, many=True).data
-            # permission_classes = [IsAdminUser]
-            return JsonResponse({"products": serialized}, status=status.HTTP_200_OK)
+            if(request.GET.get("id")):
+                product_id = request.GET.get("id")
+                # print(product_id)
+                products = Products.objects.filter(pk = product_id)
+                if(len(products) == 0):
+                    return HttpResponse(status=400)    
+                serialized=ProductSerializer(products, many=True).data
+                # permission_classes = [IsAdminUser]
+                return JsonResponse({"products": serialized}, status=status.HTTP_200_OK)
+            else:
+                products = Products.objects.all()
+                serialized=ProductSerializer(products, many=True).data
+                return JsonResponse({"products": serialized}, status=status.HTTP_200_OK)
         except Exception as e:
             return JsonResponse({"fail":"fail"}, status=status.HTTP_400_BAD_REQUEST)
         # else:
-        #     products = Products.objects.all()
-        #     serialized=ProductSerializer(products, many=True).data
-  
 
 #initial phase u need to make all vendors as vendor for this product
     def post(self, request):
