@@ -47,9 +47,9 @@ class OrderDetails(models.Model):
 class Cart(models.Model):
     #sessions_id = models.TextField() #?
     c_product = models.ManyToManyField(Products, blank = True)
-    c_quantity = models.IntegerField(null = True, blank=True)  #comment this ?
+    c_quantity = models.IntegerField(default = 0, blank=True)  #comment this ?
     #orderdetails    
-    c_total = models.DecimalField(decimal_places=2, max_digits=200, null = True, blank=True) #need to make null false and default s 0
+    c_total = models.DecimalField(decimal_places=2, max_digits=200, default = 0, blank=True) #need to make null false and default s 0
     c_customer = models.OneToOneField(Customer, on_delete=models.CASCADE, primary_key = True)
     # def __str__(self):
     #     return str(type(self.c_product))

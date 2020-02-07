@@ -34,9 +34,6 @@ def home(request):
 
 # @unauthenticated_user
 def loginPage(request):
-	# if request.user.is_authenticated:
-	# 	return redirect('home')
-	# else:
     if request.method == 'POST':
         username = request.POST.get('username')
         password =request.POST.get('password')
@@ -82,58 +79,71 @@ class ProductViewset(APIView):
     #127.0.0.1:8000/products/id/
     
     def get(self, request):         #trying to access product that does not exist?
-        if(request.GET.get('id')):
-            product_id = request.GET.get('id')
+        try:
+            product_id = request.GET.get("id")
+            # print(product_id)
             products = Products.objects.filter(pk = product_id)
+            if(len(products) == 0):
+                return HttpResponse(status=400)    
             serialized=ProductSerializer(products, many=True).data
             # permission_classes = [IsAdminUser]
-        else:
-            products = Products.objects.all()
-            serialized=ProductSerializer(products, many=True).data
-        return JsonResponse({"products": serialized}, status=status.HTTP_200_OK)
+            return JsonResponse({"products": serialized}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return JsonResponse({"fail":"fail"}, status=status.HTTP_400_BAD_REQUEST)
+        # else:
+        #     products = Products.objects.all()
+        #     serialized=ProductSerializer(products, many=True).data
   
 
 #initial phase u need to make all vendors as vendor for this product
     def post(self, request):
-        post_data = r0equest.data
-        productObj = Products(p_name=post_data["p_name"], p_type=post_data["p_type"], p_cost=post_data["p_cost"])#, p_count=post_data["p_count"],
-        productObj.save()
-        # for vender_ in post_data["vender"]:
-        #     productObj.vender.add(vender_)
-        for vender_ in Vender.objects.all():
-            productObj.vender.add(vender_)  
-        vendors = Vender.objects.all()
-        for vendor_ in vendors:
-            change_price = VendorCostSet()
-            change_price.Changed_amount = post_data["p_cost"]
-            change_price.product_key = productObj
-            change_price.vendor_key = vendor_
-            change_price.save()
-        productObj.save()
-        return Response({"status":"Success"}, status.HTTP_200_OK)
+        post_data = request.data
+        try:
+            productObj = Products(p_name=post_data["p_name"], p_type=post_data["p_type"], p_cost=post_data["p_cost"])#, p_count=post_data["p_count"],
+            productObj.save()
+            for vender_ in Vender.objects.all():
+                productObj.vender.add(vender_)  
+            vendors = Vender.objects.all()
+            for vendor_ in vendors:
+                change_price = VendorCostSet()
+                change_price.Changed_amount = post_data["p_cost"]
+                change_price.product_key = productObj
+                change_price.vendor_key = vendor_
+                change_price.save()
+            productObj.save()
+            return Response({"status":"Success"}, status.HTTP_201_CREATED)
+        except :
+            return Response("wrong json body", status=400)
 
     #after deleting, corresponding entries in vendor cost set also has to be deleted
     def delete(self, request):              #try and exception here?
         product_id = request.GET.get('id')
         print(product_id)
-        Products.objects.filter(pk=product_id).delete()
+        del_product = Products.objects.filter(pk=product_id)
+        if(len(del_product) == 0):
+            return Response({"status": "No product to delete"},status=204)
+        else:
+            del_product.delete()
         return Response({"status": "deleted"}, status.HTTP_200_OK)
 
     def put(self, request):     #updates name
         product_id = request.GET.get('id')
+        print(product_id)
         post_data = request.data
         productObj = Products.objects.filter(pk=product_id)
-        for product_ in productObj:    #any other way?
-            product_.p_name = post_data["p_name"]
-            product_.save(update_fields=["p_name"])
-        return Response({"status": "updated"}, status.HTTP_200_OK)
-
+        try:
+            for product_ in productObj:    #any other way?
+                product_.p_name = post_data["p_name"]
+                product_.save(update_fields=["p_name"])
+            return Response({"status": "updated"}, status.HTTP_200_OK)
+        except KeyError:
+            return Response({"Wrong request Body"}, status=400)
 # @method_decorator([userdecorator], name="dispatch")
 class AddToCartViewset(APIView): #change to be done: create a cart automatically whean a customer is created
   
     def get(self, request):     #calculate product price in cart...sum_of_all(product_price*total_no)
-        if(request.GET.get('id')):  
-            cart_id = request.GET.get('id')
+        if(request.GET.get('c_id')):  
+            cart_id = request.GET.get('c_id')
             carts = Cart.objects.filter(pk = cart_id)
             serialized=CartSerializer(carts, many=True).data
         else:
@@ -164,19 +174,13 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
             for cart_items in carts:
                 cart_items.c_product.remove(del_product)
                 cart_items.save()
-
-                #print(i, del_product) 
-            # print(carts1.c_product)
             serialized=CartSerializer(carts, many=True).data
         else:
-            # cart = Cart.objects.all()
-            # serialized=CartSerializer(cart, many=True).data
-            # Cart.objects.all().delete()
             return Response({"status": "nothing to delete no id"}, status.HTTP_200_OK)
         return JsonResponse({"cart": serialized}, status=status.HTTP_200_OK)
 
     def put(self, request): #add a product to cart              # put...change to post?
-        product_id = request.GET.get('id') #product id to be added in params
+        product_id = request.GET.get('p_id') #product id to be added in params
         product = Products.objects.get(pk=product_id)
         price = product.p_cost
         print(price)
@@ -205,45 +209,58 @@ class AddToCartViewset(APIView): #change to be done: create a cart automatically
 class VendorViewset(APIView):
     def post(self, request):
         post_data = request.data
-        venderObj = Vender(v_name = post_data["v_name"], v_location = post_data["v_location"], v_mobile = post_data["v_mobile"])
-        venderObj.save()
-        products = Products.objects.all()
-        for i in products:
-            change_price = VendorCostSet()
-            change_price.Changed_amount = i.p_cost
-            change_price.product_key = i
-            change_price.vendor_key = venderObj
-            change_price.save()
-        # for i in products:
-        #     print(i.id)
-        
-        # for vender_ in post_data["c_product"]:
-        #     cartObj.c_product.add(product_)  
-        #     cartObj.save()
-        return Response({"status":"Success"}, status.HTTP_200_OK)
+        try:
+            venderObj = Vender(v_name = post_data["v_name"], v_location = post_data["v_location"], v_mobile = post_data["v_mobile"])
+            venderObj.save()
+            products = Products.objects.all()
+            for product_ in products:
+                product_.vender.add(venderObj)
+                product_.save() 
+                change_price = VendorCostSet()
+                change_price.Changed_amount = product_.p_cost
+                change_price.product_key = product_
+                change_price.vendor_key = venderObj
+                change_price.save()
+            return Response({"status":"Success"}, status.HTTP_201_CREATED)
+        except KeyError:
+            return Response(status=400)
 
 
     def get(self, request): #does not give the list of vendors. This is for vendoorcostset
         if(request.GET.get('id') and request.GET.get('p_id') ):
             vendor_id = request.GET.get('id')
+           # print(vendor_id)
             product_id = request.GET.get('p_id')
-            vendors = VendorCostSet.objects.filter(pk = vendor_id, product_key = product_id)
+            vendors = VendorCostSet.objects.filter(vendor_key = vendor_id, product_key = product_id)
             print(vendors)
+            if(len(vendors) == 0):
+                return Response({}, status = 404)
             serialized=VendorCostSerializer(vendors, many=True).data
         else:
             vendors = VendorCostSet.objects.all()
             #print(vendors)
             serialized=VendorCostSerializer(vendors, many=True).data
+            # return Response({"Request Failed"}, status=400)
         return JsonResponse({"vendors": serialized}, status=status.HTTP_200_OK)
 
+    # def get(self, request):     #calculate product price in cart...sum_of_all(product_price*total_no)
+    #     if(request.GET.get('id')):  
+    #         ven_id = request.GET.get('id')
+    #         vendor = Vender.objects.filter(pk = ven_id)
+    #         serialized=VenderSerializer(vendor, many=True).data
+    #     else:
+    #         cart = Vender.objects.all()
+    #         serialized=VenderSerializer(cart, many=True).data
+    #     return JsonResponse({"vender": serialized}, status=status.HTTP_200_OK)
 
     def put(self, request): #to reset the price
-        new_amount = 120
-        post_data = request.data
+        put_data = request.data
+        new_amount = put_data["update_price"]
+        # post_data = request.data
         vendor_id = request.GET.get('v_id')
         product_id = request.GET.get('p_id')
         entries = VendorCostSet.objects.get(vendor_key = vendor_id, product_key = product_id)
-        entries.Changed_amount = new_amount
+        entries.Changed_amount = int(new_amount)    
         entries.save()
         return Response({"status":"Success"}, status.HTTP_200_OK)
 
@@ -327,15 +344,19 @@ class BillViewSet(APIView):     #after customer api
 # @method_decorator([userdecorator], name='dispatch')
 class UpdateCart(APIView):
     def put(self, request):         #check if requested number of products are available. request < than count of product   
-        product_id = request.GET.get('id')
+        product_id = request.GET.get('p_id')
         customer_id = request.GET.get("c_id")
         orderdetailsObj = OrderDetails.objects.get(user_id = customer_id, product_id = product_id)
+        print(orderdetailsObj)
         orderdetailsObj.quantity = orderdetailsObj.quantity + 1
         orderdetailsObj.save()
+        cartObj = Cart.objects.get(c_customer=customer_id, c_product=product_id)
+        cartObj.c_total = cartObj.c_total + Products.objects.get(pk=product_id).p_cost
+        cartObj.save()
         return Response({"status": "updated"}, status.HTTP_200_OK)
 
     def delete(self, request):
-        product_id = request.GET.get('id')
+        product_id = request.GET.get('p_id')
         customer_id = request.GET.get("c_id")
         orderdetailsObj = OrderDetails.objects.get(user_id = customer_id, product_id = product_id)
         if(orderdetailsObj.quantity == 1):      #need to add code part where entry will be deleted from the cart 
@@ -343,6 +364,9 @@ class UpdateCart(APIView):
             # https://stackoverflow.com/questions/11663945/calling-a-rest-api-from-django-view    -> call this for last item so product can be deleted?
         else:
             orderdetailsObj.quantity = orderdetailsObj.quantity - 1
+            cartObj = Cart.objects.get(c_customer=customer_id, c_product=product_id)
+            cartObj.c_total = cartObj.c_total - Products.objects.get(pk=product_id).p_cost
+            cartObj.save()
         orderdetailsObj.save()
         return Response({"status": "updated"}, status.HTTP_200_OK)
  
